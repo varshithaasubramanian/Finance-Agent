@@ -3,7 +3,8 @@ Pydantic schemas: request/response contracts for the API and structured
 output contracts for the AI layer (NL expense parsing, assistant tool
 calls).
 """
-from datetime import date, datetime
+import datetime as dt
+from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
@@ -100,7 +101,7 @@ class ExpenseCreate(BaseModel):
     amount: float = Field(gt=0)
     category_id: str
     description: str = ""
-    date: date
+    date: dt.date
     payment_method: PaymentMethodEnum = PaymentMethodEnum.OTHER
     notes: str = ""
     is_ai_entered: bool = False
@@ -110,7 +111,7 @@ class ExpenseUpdate(BaseModel):
     amount: Optional[float] = Field(default=None, gt=0)
     category_id: Optional[str] = None
     description: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[dt.date] = None
     payment_method: Optional[PaymentMethodEnum] = None
     notes: Optional[str] = None
 
@@ -122,7 +123,7 @@ class ExpenseOut(BaseModel):
     category_name: str = ""
     amount: float
     description: str
-    date: date
+    date: dt.date
     payment_method: PaymentMethodEnum
     notes: str
     is_ai_entered: bool
@@ -135,8 +136,8 @@ class ExpenseOut(BaseModel):
 class ExpenseFilter(BaseModel):
     category_id: Optional[str] = None
     search: Optional[str] = None
-    date_from: Optional[date] = None
-    date_to: Optional[date] = None
+    date_from: Optional[dt.date] = None
+    date_to: Optional[dt.date] = None
     payment_method: Optional[PaymentMethodEnum] = None
     sort_by: Literal["date", "amount", "category"] = "date"
     sort_dir: Literal["asc", "desc"] = "desc"
@@ -148,7 +149,7 @@ class RecurringExpenseCreate(BaseModel):
     name: str
     amount: float = Field(gt=0)
     frequency: RecurrenceFrequencyEnum
-    next_due_date: date
+    next_due_date: dt.date
 
 
 class RecurringExpenseOut(BaseModel):
@@ -159,7 +160,7 @@ class RecurringExpenseOut(BaseModel):
     name: str
     amount: float
     frequency: RecurrenceFrequencyEnum
-    next_due_date: date
+    next_due_date: dt.date
     active: bool
 
     class Config:
@@ -171,14 +172,14 @@ class FinancialGoalCreate(BaseModel):
     name: str
     target_amount: float = Field(gt=0)
     current_amount: float = Field(default=0, ge=0)
-    deadline: date
+    deadline: dt.date
 
 
 class FinancialGoalUpdate(BaseModel):
     name: Optional[str] = None
     target_amount: Optional[float] = None
     current_amount: Optional[float] = None
-    deadline: Optional[date] = None
+    deadline: Optional[dt.date] = None
 
 
 class FinancialGoalOut(BaseModel):
@@ -186,7 +187,7 @@ class FinancialGoalOut(BaseModel):
     name: str
     target_amount: float
     current_amount: float
-    deadline: date
+    deadline: dt.date
     remaining_amount: float = 0
     days_left: int = 0
     required_daily_saving: float = 0
@@ -222,7 +223,7 @@ class TravelAnalytics(BaseModel):
     estimated_daily_travel: Optional[float] = None
     expected_cost_remaining_days: Optional[float] = None
     budget_sufficient: Optional[bool] = None
-    expected_exhaustion_date: Optional[date] = None
+    expected_exhaustion_date: Optional[dt.date] = None
     required_daily_reduction: Optional[float] = None
 
 
@@ -244,7 +245,7 @@ class BudgetSummary(BaseModel):
 
 
 class SpendingTrendPoint(BaseModel):
-    date: date
+    date: dt.date
     amount: float
     cumulative: float
 
@@ -255,7 +256,7 @@ class ForecastOut(BaseModel):
     projected_monthly_spending: float
     projected_surplus_deficit: float
     category_forecasts: list[dict]
-    expected_exhaustion_date: Optional[date] = None
+    expected_exhaustion_date: Optional[dt.date] = None
 
 
 class AlertOut(BaseModel):
