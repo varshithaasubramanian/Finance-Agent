@@ -62,6 +62,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(120), default="Demo User")
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
+    security_question: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    security_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     currency: Mapped[str] = mapped_column(String(8), default="INR")
     currency_symbol: Mapped[str] = mapped_column(String(4), default="\u20b9")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

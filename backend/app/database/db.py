@@ -66,3 +66,39 @@ def init_db() -> None:
     from app.models import models  # noqa: F401  (ensures models are registered)
 
     Base.metadata.create_all(bind=engine)
+    _run_lightweight_migrations()
+
+
+# SQLAlchemy's create_all() only creates tables that don't exist yet -- it
+# never alters an existing table to add a newly-introduced column. Since
+# this project has no Alembic migration chain, new nullable columns are
+# added here in a small, idempotent, cross-database-safe way so that an
+# already-deployed database (local SQLite or a live Postgres instance)
+# picks up schema additions without anyone needing to drop and recreate it.
+_PENDING_COLUMNS: list[tuple[str, str, str]] = [
+    # (table, column, SQL type) -- always nullable, always additive/safe.
+    ("users", "security_question", "VARCHAR(255)"),
+    ("users", "security_answer_hash", "VARCHAR(255)"),
+]
+
+
+def _run_lightweight_migrations() -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    with engine.begin() as conn:
+        for table, column, sql_type in _PENDING_COLUMNS:
+            if table not in existing_tables:
+                continue  # create_all() will have made it fresh with all current columns
+            existing_columns = {c["name"] for c in inspector.get_columns(table)}
+            if column in existing_columns:
+                continue
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
+            except Exception:
+                # Another worker may have added it concurrently, or the
+                # specific database dialect phrases this differently; never
+                # let a best-effort migration crash app startup.
+                pass

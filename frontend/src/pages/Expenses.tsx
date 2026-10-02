@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useBudget } from "../hooks/useBudget";
 import * as api from "../services/api";
 import type { Expense, PaymentMethod } from "../types";
-import { Card, Button, Input, Select, Modal, Field, Spinner, EmptyState, Badge } from "../components/ui";
+import { Card, Button, Input, Select, Modal, Field, TextArea, Spinner, EmptyState, Badge } from "../components/ui";
 import { formatDate, formatMoney } from "../utils/format";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "UPI", "Debit Card", "Credit Card", "Bank Transfer", "Other"];
@@ -129,6 +129,7 @@ export default function Expenses() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     {e.category_name} &middot; {formatDate(e.date)} &middot; {e.payment_method}
                   </p>
+                  {e.notes && <p className="text-xs text-slate-400 mt-0.5 italic truncate">Note: {e.notes}</p>}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="num font-semibold text-ink">{formatMoney(e.amount, budget.currency_symbol)}</span>
@@ -193,6 +194,7 @@ function EditExpenseModal({
   const [description, setDescription] = useState(expense.description);
   const [date, setDate] = useState(expense.date);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(expense.payment_method);
+  const [notes, setNotes] = useState(expense.notes || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,6 +208,7 @@ function EditExpenseModal({
         description,
         date,
         payment_method: paymentMethod,
+        notes,
       } as any);
       onSaved();
     } catch (err: any) {
@@ -243,6 +246,9 @@ function EditExpenseModal({
             </option>
           ))}
         </Select>
+      </Field>
+      <Field label="Notes (optional)">
+        <TextArea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any extra detail you want to remember about this expense" />
       </Field>
       {error && <p className="text-sm text-critical-600 mb-3">{error}</p>}
       <div className="flex gap-2 justify-end">

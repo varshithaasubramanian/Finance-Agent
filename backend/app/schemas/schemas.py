@@ -328,10 +328,21 @@ class ErrorResponse(BaseModel):
 
 
 # -------------------------------------------------------------------- Auth
+SECURITY_QUESTIONS: list[str] = [
+    "What city were you born in?",
+    "What was the name of your first pet?",
+    "What is your mother's maiden name?",
+    "What was your childhood nickname?",
+    "What was the name of your first school?",
+]
+
+
 class UserCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    security_question: str = Field(min_length=1, max_length=255)
+    security_answer: str = Field(min_length=1, max_length=255)
 
 
 class UserLogin(BaseModel):
@@ -348,6 +359,29 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    security_question: Optional[str] = None
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    security_answer: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class Token(BaseModel):

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useBudget } from "../hooks/useBudget";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useBudget, currentPeriod } from "../hooks/useBudget";
 import * as api from "../services/api";
 import { Card, CardHeader, Button, Field, Input, Spinner } from "../components/ui";
-import { formatMoney } from "../utils/format";
+import { formatMoney, periodLabel } from "../utils/format";
 
 interface DraftCategory {
   name: string;
@@ -16,15 +16,16 @@ const DEFAULT_DRAFT: DraftCategory[] = [
   { name: "Others", allocation: "200" },
 ];
 
-function currentPeriod(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 export default function BudgetSetup() {
-  const { budget, refresh, needsSetup, loading } = useBudget();
+  const { budget, budgets, refresh, selectBudget, needsSetup, loading } = useBudget();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const forceNew = searchParams.get("new") === "1";
 
+  // Editing the currently-selected budget's totals, vs. creating a brand new month
+  const isCreating = needsSetup || forceNew || !budget;
+
+  const [period, setPeriod] = useState(currentPeriod());
   const [totalAmount, setTotalAmount] = useState("2000");
   const [allowOver, setAllowOver] = useState(false);
   const [categories, setCategories] = useState<DraftCategory[]>(DEFAULT_DRAFT);
@@ -32,15 +33,29 @@ export default function BudgetSetup() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (budget) {
+    if (!isCreating && budget) {
       setTotalAmount(String(budget.total_amount));
       setAllowOver(budget.allow_over_allocation);
     }
-  }, [budget]);
+    if (isCreating) {
+      // Default the new-month picker to one past the most recent existing budget, else this month
+      if (budgets.length > 0) {
+        const [y, m] = budgets[0].period.split("-").map(Number);
+        const next = new Date(y, m - 1 + 1, 1); // first of the month after the newest budget
+        const today = new Date();
+        const candidate = next > today ? next : today;
+        setPeriod(`${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, "0")}`);
+      } else {
+        setPeriod(currentPeriod());
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreating, budget]);
 
   const allocatedTotal = categories.reduce((sum, c) => sum + (parseFloat(c.allocation) || 0), 0);
   const total = parseFloat(totalAmount) || 0;
   const overAllocated = !allowOver && allocatedTotal > total;
+  const periodAlreadyExists = budgets.some((b) => b.period === period);
 
   function updateCategory(idx: number, field: keyof DraftCategory, value: string) {
     setCategories((prev) => prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)));
@@ -59,8 +74,8 @@ export default function BudgetSetup() {
     setError(null);
     setSubmitting(true);
     try {
-      await api.createBudget({
-        period: currentPeriod(),
+      const created = await api.createBudget({
+        period,
         total_amount: total,
         allow_over_allocation: allowOver,
         categories: categories
@@ -68,6 +83,7 @@ export default function BudgetSetup() {
           .map((c) => ({ name: c.name.trim(), allocation: parseFloat(c.allocation) || 0 })),
       });
       await refresh();
+      selectBudget(created.id);
       navigate("/");
     } catch (err: any) {
       setError(err.message || "Failed to create budget");
@@ -84,6 +100,7 @@ export default function BudgetSetup() {
     try {
       await api.updateBudget(budget.id, { total_amount: total, allow_over_allocation: allowOver });
       await refresh();
+      navigate("/");
     } catch (err: any) {
       setError(err.message || "Failed to update budget");
     } finally {
@@ -99,12 +116,12 @@ export default function BudgetSetup() {
     );
   }
 
-  if (budget && !needsSetup) {
+  if (!isCreating && budget) {
     return (
       <div className="max-w-xl space-y-6">
         <div>
           <h1 className="font-display font-bold text-2xl text-ink">Budget setup</h1>
-          <p className="text-sm text-slate-500 mt-1">Editing your {budget.period} budget.</p>
+          <p className="text-sm text-slate-500 mt-1">Editing your {periodLabel(budget.period)} budget.</p>
         </div>
         <Card>
           <form onSubmit={handleUpdate}>
@@ -126,7 +143,11 @@ export default function BudgetSetup() {
           <a href="/categories" className="text-brand-600 font-medium hover:underline">
             Categories
           </a>{" "}
-          page.
+          page. To set up a different month,{" "}
+          <a href="/budget-setup?new=1" className="text-brand-600 font-medium hover:underline">
+            create a new month's budget
+          </a>
+          .
         </p>
       </div>
     );
@@ -135,12 +156,24 @@ export default function BudgetSetup() {
   return (
     <div className="max-w-xl space-y-6">
       <div>
-        <h1 className="font-display font-bold text-2xl text-ink">Set up your budget</h1>
-        <p className="text-sm text-slate-500 mt-1">Define a total for {currentPeriod()} and split it into categories.</p>
+        <h1 className="font-display font-bold text-2xl text-ink">
+          {budgets.length === 0 ? "Set up your budget" : "Set up a new month"}
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">Choose a month, define a total, and split it into categories.</p>
       </div>
 
       <Card>
         <form onSubmit={handleCreate}>
+          <Field label="Month">
+            <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} required />
+          </Field>
+          {periodAlreadyExists && (
+            <p className="text-sm text-critical-600 mb-4">
+              You already have a budget for {periodLabel(period)}. Pick a different month, or go edit that one from
+              the month switcher instead.
+            </p>
+          )}
+
           <Field label="Total monthly budget (₹)">
             <Input type="number" min={0} step="0.01" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} required />
           </Field>
@@ -194,7 +227,7 @@ export default function BudgetSetup() {
 
           {error && <p className="text-sm text-critical-600 mb-3">{error}</p>}
 
-          <Button type="submit" disabled={submitting || overAllocated} className="w-full sm:w-auto">
+          <Button type="submit" disabled={submitting || overAllocated || periodAlreadyExists} className="w-full sm:w-auto">
             {submitting ? "Creating..." : "Create budget"}
           </Button>
           <p className="text-xs text-slate-400 mt-3">

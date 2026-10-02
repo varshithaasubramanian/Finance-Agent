@@ -74,11 +74,39 @@ function unwrap<T>(promise: Promise<{ data: T }>): Promise<T> {
 }
 
 // --------------------------------------------------------------------- auth
-export const signup = (name: string, email: string, password: string) =>
-  unwrap<AuthResponse>(http.post("/api/auth/signup", { name, email, password }));
+export const getSecurityQuestions = () => unwrap<string[]>(http.get("/api/auth/security-questions"));
+export const signup = (
+  name: string,
+  email: string,
+  password: string,
+  securityQuestion: string,
+  securityAnswer: string
+) =>
+  unwrap<AuthResponse>(
+    http.post("/api/auth/signup", {
+      name,
+      email,
+      password,
+      security_question: securityQuestion,
+      security_answer: securityAnswer,
+    })
+  );
 export const login = (email: string, password: string) =>
   unwrap<AuthResponse>(http.post("/api/auth/login", { email, password }));
 export const getMe = () => unwrap<AuthResponse["user"]>(http.get("/api/auth/me"));
+export const updateProfile = (name: string) => unwrap<AuthResponse["user"]>(http.patch("/api/auth/me", { name }));
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  unwrap<void>(http.post("/api/auth/change-password", { current_password: currentPassword, new_password: newPassword }));
+export const forgotPassword = (email: string) =>
+  unwrap<{ security_question: string | null }>(http.post("/api/auth/forgot-password", { email }));
+export const resetPassword = (email: string, securityAnswer: string, newPassword: string) =>
+  unwrap<AuthResponse>(
+    http.post("/api/auth/reset-password", {
+      email,
+      security_answer: securityAnswer,
+      new_password: newPassword,
+    })
+  );
 
 // ------------------------------------------------------------------ budgets
 export const getCurrentBudget = () => unwrap<Budget>(http.get("/api/budgets/current"));

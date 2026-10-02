@@ -1,5 +1,5 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import {
   LayoutDashboard,
@@ -11,8 +11,11 @@ import {
   Tags,
   Settings as SettingsIcon,
   LogOut,
+  MoreHorizontal,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { PeriodSwitcher } from "./PeriodSwitcher";
+import { Modal } from "./ui";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -25,22 +28,34 @@ const NAV_ITEMS = [
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
-// Primary items shown in the mobile bottom bar (limited to 5 for space)
+// Primary items shown in the mobile bottom bar (limited to 5 for space).
+// Anything else (Categories, Budget Setup, Settings) lives behind "More".
 const MOBILE_ITEMS = [
   { to: "/", label: "Home", icon: LayoutDashboard, end: true },
   { to: "/expenses", label: "Expenses", icon: Receipt },
   { to: "/add-expense", label: "Add", icon: ListPlus },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/assistant", label: "Assistant", icon: Sparkles },
+];
+
+const MORE_ITEMS = [
+  { to: "/assistant", label: "AI Assistant", icon: Sparkles },
+  { to: "/categories", label: "Categories", icon: Tags },
+  { to: "/budget-setup", label: "Budget Setup", icon: Wallet },
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
   return (
     <div className="min-h-screen flex">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-60 md:flex-col border-r border-ledger bg-white sticky top-0 h-screen px-4 py-6">
         <Brand />
-        <nav className="mt-8 flex-1 space-y-1">
+        <div className="mt-6 mb-2 px-2">
+          <PeriodSwitcher />
+        </div>
+        <nav className="flex-1 space-y-1">
           {NAV_ITEMS.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
@@ -50,8 +65,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ledger px-4 py-3 flex items-center justify-between">
+        <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ledger px-4 py-3 flex items-center justify-between gap-2">
           <Brand compact />
+          <PeriodSwitcher />
           <MobileLogout />
         </header>
 
@@ -62,16 +78,60 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {MOBILE_ITEMS.map((item) => (
             <MobileNavItem key={item.to} {...item} />
           ))}
+          <button
+            onClick={() => setMoreOpen(true)}
+            className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] font-medium text-slate-400 min-w-[56px]"
+          >
+            <MoreHorizontal size={20} strokeWidth={2} />
+            More
+          </button>
         </nav>
+
+        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
       </div>
     </div>
+  );
+}
+
+function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  return (
+    <Modal open={open} onClose={onClose} title="More">
+      <div className="space-y-1 -mx-2">
+        {MORE_ITEMS.map((item) => (
+          <button
+            key={item.to}
+            onClick={() => {
+              onClose();
+              navigate(item.to);
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-ink transition-colors"
+          >
+            <item.icon size={18} strokeWidth={2} />
+            {item.label}
+          </button>
+        ))}
+        <div className="border-t border-ledger my-1" />
+        <button
+          onClick={() => {
+            onClose();
+            logout();
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-critical-600 hover:bg-critical-50 transition-colors"
+        >
+          <LogOut size={18} strokeWidth={2} />
+          Log out
+        </button>
+      </div>
+    </Modal>
   );
 }
 
 function MobileLogout() {
   const { logout } = useAuth();
   return (
-    <button onClick={logout} className="text-slate-400 hover:text-critical-600 p-1.5" aria-label="Log out">
+    <button onClick={logout} className="text-slate-400 hover:text-critical-600 p-1.5 shrink-0" aria-label="Log out">
       <LogOut size={18} />
     </button>
   );
@@ -95,14 +155,16 @@ function UserFooter() {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2 px-2">
+    <div className="flex items-center gap-2 px-2 shrink-0">
       <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center font-display font-bold text-sm shrink-0">
         ₹
       </div>
-      <div>
-        <div className="font-display font-bold text-ink leading-none">Finch</div>
-        {!compact && <div className="text-[11px] text-slate-400 mt-0.5">Budget Agent</div>}
-      </div>
+      {!compact && (
+        <div>
+          <div className="font-display font-bold text-ink leading-none">Finch</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Budget Agent</div>
+        </div>
+      )}
     </div>
   );
 }

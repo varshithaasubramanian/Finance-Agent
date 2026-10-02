@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
 import { useBudget } from "../hooks/useBudget";
 import * as api from "../services/api";
 import type { FinancialGoal } from "../types";
@@ -7,6 +8,7 @@ import { formatDate, formatMoney, clampPercent } from "../utils/format";
 
 export default function Settings() {
   const { budget } = useBudget();
+  const { user, refreshUser } = useAuth();
   const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
@@ -30,8 +32,11 @@ export default function Settings() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="font-display font-bold text-2xl text-ink">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">App configuration and financial goals.</p>
+        <p className="text-sm text-slate-500 mt-1">Your profile, security, app configuration, and financial goals.</p>
       </div>
+
+      <ProfileCard user={user} onUpdated={refreshUser} />
+      <ChangePasswordCard />
 
       <Card>
         <CardHeader title="AI configuration" />
@@ -116,6 +121,105 @@ export default function Settings() {
         />
       )}
     </div>
+  );
+}
+
+function ProfileCard({ user, onUpdated }: { user: { name: string; email: string } | null; onUpdated: () => Promise<void> }) {
+  const [name, setName] = useState(user?.name || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    setName(user?.name || "");
+  }, [user?.name]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await api.updateProfile(name);
+      await onUpdated();
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Profile" />
+      <form onSubmit={handleSave}>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Field label="Email">
+          <Input value={user?.email || ""} disabled className="bg-slate-50 text-slate-400" />
+        </Field>
+        {error && <p className="text-sm text-critical-600 mb-3">{error}</p>}
+        {success && <p className="text-sm text-brand-600 mb-3">Profile updated.</p>}
+        <Button type="submit" disabled={saving || name === user?.name}>
+          {saving ? "Saving..." : "Save changes"}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+function ChangePasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    if (newPassword !== confirmPassword) {
+      setError("New passwords don't match.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setError(err.message || "Failed to change password");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Change password" />
+      <form onSubmit={handleSave}>
+        <Field label="Current password">
+          <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+        </Field>
+        <Field label="New password" hint="At least 8 characters">
+          <Input type="password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+        </Field>
+        <Field label="Confirm new password">
+          <Input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+        </Field>
+        {error && <p className="text-sm text-critical-600 mb-3">{error}</p>}
+        {success && <p className="text-sm text-brand-600 mb-3">Password changed successfully.</p>}
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving..." : "Change password"}
+        </Button>
+      </form>
+    </Card>
   );
 }
 

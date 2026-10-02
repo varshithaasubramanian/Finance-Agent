@@ -43,7 +43,7 @@ def auth_client(client):
     Authorization header already attached to every request."""
     signup_resp = client.post(
         "/api/auth/signup",
-        json={"name": "Test User", "email": "tester@example.com", "password": "supersecret123"},
+        json={"name": "Test User", "email": "tester@example.com", "password": "supersecret123", "security_question": "What city were you born in?", "security_answer": "testville"},
     )
     assert signup_resp.status_code == 201, signup_resp.text
     token = signup_resp.json()["access_token"]
